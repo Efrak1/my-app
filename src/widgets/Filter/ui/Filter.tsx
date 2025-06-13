@@ -1,21 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Label } from '@/shared/ui/label';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { Button } from '@/shared/ui/button';
 import { Slider } from '@/shared/ui/slider';
-import { Ram } from "./Filter.types";
-import { Products } from './Product.mock';
+import { Ram, FilterState } from './Filter.types';
+import { Products } from './Product.mock'
 
-// Интерфейс состояния фильтров
-interface FilterState {
-  brands: string[];
-  capacities: number[];
-  types: Ram['type'][];
-  priceRange: [number, number];
-}
-
-// Вычисляем статические данные один раз
 const ALL_BRANDS = Array.from(new Set(Products.map(p => p.brand)));
 const ALL_CAPACITIES = Array.from(new Set(Products.map(p => p.capacity))).sort((a, b) => a - b);
 const ALL_TYPES = Array.from(new Set(Products.map(p => p.type))) as Ram['type'][];
@@ -30,111 +21,59 @@ const RAMFilter = () => {
     priceRange: [0, MAX_PRICE]
   });
 
-  // Фильтрация продуктов
-  const filteredProducts = Products.filter(product => {
-    const [minPrice, maxPrice] = filters.priceRange;
-    
-    return (
-      (filters.brands.length === 0 || filters.brands.includes(product.brand)) &&
-      (filters.capacities.length === 0 || filters.capacities.includes(product.capacity)) &&
-      (filters.types.length === 0 || filters.types.includes(product.type)) &&
-      product.price >= minPrice && 
-      product.price <= maxPrice
-    );
-  });
-
-  // Инициализация на клиенте
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Общий обработчик для чекбоксов
-  const toggleFilter = <K extends keyof FilterState>(filterType: K, value: FilterState[K][number]) => {
+  const toggleFilter = useCallback((
+    filterType: keyof FilterState,
+    value: string | number
+  ) => {
     setFilters(prev => {
-      const currentValues = prev[filterType] as (string | number)[];
+      const currentValues = [...prev[filterType]] as (string | number)[];
       const newValues = currentValues.includes(value)
         ? currentValues.filter(v => v !== value)
         : [...currentValues, value];
       
       return { ...prev, [filterType]: newValues };
     });
-  };
+  }, []);
 
-  // Обработчик цены
-  const handlePriceChange = (values: number[]) => {
+  const handlePriceChange = useCallback((values: number[]) => {
     setFilters(prev => ({
       ...prev,
-      priceRange: [values[0], values[1]] as [number, number]
+      priceRange: [values[0], values[1]]
     }));
-  };
+  }, []);
 
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setFilters({
       brands: [],
       capacities: [],
       types: [],
       priceRange: [0, MAX_PRICE]
     });
-  };
+  }, []);
 
-  if (!isClient) {
-    return (
-      <div className="flex flex-col md:flex-row gap-6 p-4">
-        <div className="w-full md:w-64 space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="h-6 bg-gray-200 rounded w-1/3 animate-pulse"></div>
-            <div className="h-8 bg-gray-200 rounded w-20 animate-pulse"></div>
-          </div>
-          
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-              <div className="space-y-2">
-                {[...Array(4)].map((_, j) => (
-                  <div key={j} className="flex items-center space-x-2">
-                    <div className="h-4 w-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          
-          <div className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-            <div className="h-2 bg-gray-200 rounded-full mt-4"></div>
-          </div>
-        </div>
-        
-        <div className="flex-1">
-          <div className="mb-4">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-2 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/3 animate-pulse"></div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="border rounded-lg p-4">
-                <div className="animate-pulse">
-                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                  <div className="h-8 bg-gray-200 rounded w-full"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const filteredProducts = useMemo(() => (
+    Products.filter(product => {
+      const [minPrice, maxPrice] = filters.priceRange;
+      return (
+        (!filters.brands.length || filters.brands.includes(product.brand)) &&
+        (!filters.capacities.length || filters.capacities.includes(product.capacity)) &&
+        (!filters.types.length || filters.types.includes(product.type)) &&
+        product.price >= minPrice && 
+        product.price <= maxPrice
+      );
+    })
+  ), [filters]);
+
+  useEffect(() => setIsClient(true), []);
+
+  if (!isClient) return <SkeletonLoader />;
 
   return (
     <div className="flex flex-col md:flex-row gap-6 p-4">
       <div className="w-full md:w-64 space-y-6">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-bold">Фильтры</h2>
-          <Button variant="ghost" onClick={resetFilters}>
-            Сбросить
-          </Button>
+          <Button variant="ghost" onClick={resetFilters}>Сбросить</Button>
         </div>
 
         <div>
@@ -235,5 +174,53 @@ const RAMFilter = () => {
     </div>
   );
 };
+
+const SkeletonLoader = () => (
+  <div className="flex flex-col md:flex-row gap-6 p-4">
+    <div className="w-full md:w-64 space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="h-6 bg-gray-200 rounded w-1/3 animate-pulse" />
+        <div className="h-8 bg-gray-200 rounded w-20 animate-pulse" />
+      </div>
+      
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
+          <div className="space-y-2">
+            {[...Array(4)].map((_, j) => (
+              <div key={j} className="flex items-center space-x-2">
+                <div className="h-4 w-4 bg-gray-200 rounded" />
+                <div className="h-4 bg-gray-200 rounded w-2/3" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      
+      <div className="animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
+        <div className="h-2 bg-gray-200 rounded-full mt-4" />
+      </div>
+    </div>
+    
+    <div className="flex-1">
+      <div className="mb-4">
+        <div className="h-8 bg-gray-200 rounded w-1/4 mb-2 animate-pulse" />
+        <div className="h-4 bg-gray-200 rounded w-1/3 animate-pulse" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="border rounded-lg p-4">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2" />
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4" />
+              <div className="h-8 bg-gray-200 rounded w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 export default RAMFilter;

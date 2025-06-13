@@ -6,3 +6,10 @@ export interface Ram {
     type: 'DDR3' | 'DDR4' | 'DDR5';
     price: number;
 }
+
+export interface FilterState {
+  brands: string[];
+  capacities: number[];
+  types: Ram['type'][];
+  priceRange: [number, number];
+}
